@@ -84,7 +84,7 @@ class PCA(object):
         ##
         exvar = self.find_principal_components(data)
         
-        data_reduced = W.T @ (data - self.mean)
+        data_reduced = self.W.T @ (data - self.mean)
 
         return data_reduced
         
