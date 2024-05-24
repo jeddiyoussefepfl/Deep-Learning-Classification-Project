@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import numpy as np
 from torch.utils.data import TensorDataset, DataLoader
 
 ## MS2
@@ -116,7 +117,6 @@ class MyViT(nn.Module):
             result = torch.ones(sequence_length, d)
             for i in range(sequence_length):
                 for j in range(d):
-                    ### WRITE YOUR CODE HERE
                     if j % 2 == 0:
                         result[i,j] = np.sin(i / (10000 ** ((2 * j) / d)))
                     else:

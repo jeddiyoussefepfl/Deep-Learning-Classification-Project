@@ -34,25 +34,44 @@ def main(args):
     std = np.std(xtrain, 0, keepdims=True)
     xtrain = normalize_fn(xtrain, mu, std)
     xtest = normalize_fn(xtest, mu, std)
-    #xtrain = append_bias_term(xtrain)
-    #xtest = append_bias_term(xtest)
-
-    # Make a validation set
-    if not args.test:
-        ### WRITE YOUR CODE HERE
-        pass
-
-    ### WRITE YOUR CODE HERE to do any other data processing
+    xtrain = append_bias_term(xtrain)
+    xtest = append_bias_term(xtest)
+    
+    
     xtrain = xtrain[:2000]
     ytrain = ytrain[:2000]
     xtest = xtest[:2000]
+    
+    # Make a validation set
+    if not args.test:
+        ### WRITE YOUR CODE HERE
+        validation_ratio = 0.2  # for example, 20% of the data will be used as the validation set
+        num_validation_samples = int(validation_ratio * xtrain.shape[0])
+        
+         # Shuffle the data before splitting (optional but recommended)
+        indices_x = np.arange(xtrain.shape[0])
+        np.random.shuffle(indices_x)
+        xtrain = xtrain[indices_x] 
+        ytrain = ytrain[indices_x] 
+        
+        
+        # Split the data
+        xtrain = xtrain[num_validation_samples:]
+        ytrain = ytrain[num_validation_samples:]
+        xtest = xtrain[:num_validation_samples]
+        ytest = ytrain[:num_validation_samples]  
+
+        
+    ### WRITE YOUR CODE HERE to do any other data processing
+    
 
     # Dimensionality reduction (MS2)
     if args.use_pca:
         print("Using PCA")
         pca_obj = PCA(d=args.pca_d)
         ### WRITE YOUR CODE HERE: use the PCA object to reduce the dimensionality of the data
-
+        pca_obj.find_principal_components(xtrain)
+        xtrain = pca_obj.reduce_dimension(xtrain)
 
     ## 3. Initialize the method you want to use.
     # Neural Networks (MS2)
