@@ -67,12 +67,13 @@ class CNN(nn.Module):
             input_channels (int): number of channels in the input
             n_classes (int): number of classes to predict
         """
-        super().__init__()
-        ##
-        ###
+        super(CNN, self).__init__()
         #### WRITE YOUR CODE HERE!
-        ###
-        ##
+        self.conv2d1 = nn.Conv2d(input_channels, 6, 3, padding=1)
+        self.conv2d2 = nn.Conv2d(6, 16, 3, padding=1)
+        self.fc1 = nn.Linear(16 * 7 * 7, 120)
+        self.fc2 = nn.Linear(120, 84)
+        self.fc3 = nn.Linear(84, n_classes)
 
     def forward(self, x):
         """
@@ -84,12 +85,15 @@ class CNN(nn.Module):
             preds (tensor): logits of predictions of shape (N, C)
                 Reminder: logits are value pre-softmax.
         """
-        ##
-        ###
         #### WRITE YOUR CODE HERE!
-        ###
-        ##
-        return preds
+        #x = torch.from_numpy(x)
+        x = x.view(-1, 1, 28, 28)
+        x = F.max_pool2d(F.relu(self.conv2d1(x)), 2)
+        x = F.max_pool2d(F.relu(self.conv2d2(x)), 2)
+        x = x.reshape((x.shape[0], -1))
+        x = F.relu(torch.Tensor(self.fc1(x)))
+        x = F.relu(torch.Tensor(self.fc2(x)))
+        return self.fc3(x)
 
 
 class MyViT(nn.Module):
@@ -150,7 +154,7 @@ class Trainer(object):
         self.batch_size = batch_size
 
         self.criterion = nn.CrossEntropyLoss()
-        self.optimizer = ...  ### WRITE YOUR CODE HERE
+        self.optimizer = torch.optim.SGD(model.parameters(), lr=lr)  ### WRITE YOUR CODE HERE
 
     def train_all(self, dataloader):
         """
@@ -163,7 +167,7 @@ class Trainer(object):
             dataloader (DataLoader): dataloader for training data
         """
         for ep in range(self.epochs):
-            self.train_one_epoch(dataloader)
+            self.train_one_epoch(dataloader, ep)
 
             ### WRITE YOUR CODE HERE if you want to do add something else at each epoch
 
@@ -177,11 +181,17 @@ class Trainer(object):
         Arguments:
             dataloader (DataLoader): dataloader for training data
         """
-        ##
-        ###
         #### WRITE YOUR CODE HERE!
-        ###
-        ##
+        self.model.train()
+        for it, batch in enumerate(dataloader):
+            x, y = batch
+            y = y.long()
+            logits = self.model(x)
+            loss = self.criterion(logits, y)
+            loss.backward()
+            self.optimizer.step()
+            self.optimizer.zero_grad()
+
 
     def predict_torch(self, dataloader):
         """
@@ -200,12 +210,16 @@ class Trainer(object):
             pred_labels (torch.tensor): predicted labels of shape (N,),
                 with N the number of data points in the validation/test data.
         """
-        ##
-        ###
         #### WRITE YOUR CODE HERE!
-        ###
-        ##
-        return pred_labels
+        self.model.eval()
+        pred_labels = []
+        with torch.no_grad():
+            for batch in dataloader:
+                x = batch
+                #print(len(batch))
+                pred = self.model(x)
+                pred_labels.append(pred.argmax(dim=1))
+        return torch.cat(pred_labels)
     
     def fit(self, training_data, training_labels):
         """
