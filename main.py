@@ -4,6 +4,7 @@ import numpy as np
 from torchinfo import summary
 
 from src.data import load_data
+from src.methods.dummy_methods import DummyClassifier
 from src.methods.pca import PCA
 from src.methods.deep_network import MLP, CNN, Trainer, MyViT
 from src.utils import normalize_fn, append_bias_term, accuracy_fn, macrof1_fn, get_n_classes
@@ -19,20 +20,32 @@ def main(args):
                           of this file). Their value can be accessed as "args.argument".
     """
     ## 1. First, we load our data and flatten the images into vectors
-    xtrain, xtest, ytrain = load_data(args.data_path)
+    xtrain, xtest, ytrain = load_data(args.data)
+    print(xtrain.shape, xtest.shape, ytrain.shape)
     xtrain = xtrain.reshape(xtrain.shape[0], -1)
     xtest = xtest.reshape(xtest.shape[0], -1)
+    print(xtrain.shape, xtest.shape, ytrain.shape)
 
     ## 2. Then we must prepare it. This is were you can create a validation set,
     #  normalize, add bias, etc.
 
+    # normalize data
+    mu = np.mean(xtrain, 0, keepdims=True)
+    std = np.std(xtrain, 0, keepdims=True)
+    xtrain = normalize_fn(xtrain, mu, std)
+    xtest = normalize_fn(xtest, mu, std)
+    #xtrain = append_bias_term(xtrain)
+    #xtest = append_bias_term(xtest)
+
     # Make a validation set
     if not args.test:
-    ### WRITE YOUR CODE HERE
-        print("Using PCA")
+        ### WRITE YOUR CODE HERE
+        pass
 
     ### WRITE YOUR CODE HERE to do any other data processing
-
+    xtrain = xtrain[:2000]
+    ytrain = ytrain[:2000]
+    xtest = xtest[:2000]
 
     # Dimensionality reduction (MS2)
     if args.use_pca:
@@ -42,14 +55,22 @@ def main(args):
 
 
     ## 3. Initialize the method you want to use.
-
     # Neural Networks (MS2)
 
     # Prepare the model (and data) for Pytorch
     # Note: you might need to reshape the data depending on the network you use!
     n_classes = get_n_classes(ytrain)
     if args.nn_type == "mlp":
-        model = ... ### WRITE YOUR CODE HERE
+        ### WRITE YOUR CODE HERE
+        model = MLP(xtest.shape[1], n_classes)
+    elif args.nn_type == "cnn":
+        ### WRITE YOUR CODE HERE
+        print(xtest.shape)
+        model = CNN(1, n_classes)
+    elif args.nn_type == "transformer":
+        ### WRITE YOUR CODE HERE
+        pass
+
 
     summary(model)
 
@@ -73,9 +94,9 @@ def main(args):
 
     ## As there are no test dataset labels, check your model accuracy on validation dataset.
     # You can check your model performance on test set by submitting your test set predictions on the AIcrowd competition.
-    acc = accuracy_fn(preds, xtest)
-    macrof1 = macrof1_fn(preds, xtest)
-    print(f"Validation set:  accuracy = {acc:.3f}% - F1-score = {macrof1:.6f}")
+    #acc = accuracy_fn(preds, xtest)
+    #macrof1 = macrof1_fn(preds, xtest)
+    #print(f"Validation set:  accuracy = {acc:.3f}% - F1-score = {macrof1:.6f}")
 
 
     ### WRITE YOUR CODE HERE if you want to add other outputs, visualization, etc.
