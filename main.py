@@ -34,13 +34,13 @@ def main(args):
     std = np.std(xtrain, 0, keepdims=True)
     xtrain = normalize_fn(xtrain, mu, std)
     xtest = normalize_fn(xtest, mu, std)
-    xtrain = append_bias_term(xtrain)
-    xtest = append_bias_term(xtest)
+    #xtrain = append_bias_term(xtrain)
+    #xtest = append_bias_term(xtest)
     
     
-    xtrain = xtrain[:2000]
-    ytrain = ytrain[:2000]
-    xtest = xtest[:2000]
+    xtrain = xtrain[:6000]
+    ytrain = ytrain[:6000]
+    xtest = xtest[:1000]
     
     # Make a validation set
     if not args.test:
@@ -88,7 +88,7 @@ def main(args):
         model = CNN(1, n_classes)
     elif args.nn_type == "transformer":
         ### WRITE YOUR CODE HERE
-        pass
+        model = MyViT((1, 28, 28), 7, 2, 8, 2, n_classes)
 
 
     summary(model)
@@ -113,6 +113,7 @@ def main(args):
 
     ## As there are no test dataset labels, check your model accuracy on validation dataset.
     # You can check your model performance on test set by submitting your test set predictions on the AIcrowd competition.
+
     #acc = accuracy_fn(preds, xtest)
     #macrof1 = macrof1_fn(preds, xtest)
     #print(f"Validation set:  accuracy = {acc:.3f}% - F1-score = {macrof1:.6f}")

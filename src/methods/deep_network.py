@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from torch.utils.data import TensorDataset, DataLoader
+from src.utils import accuracy_fn as accuracy
 
 ## MS2
 
@@ -60,10 +61,10 @@ class CNN(nn.Module):
     def __init__(self, input_channels, n_classes):
         """
         Initialize the network.
-        
+
         You can add arguments if you want, but WITH a default value, e.g.:
             __init__(self, input_channels, n_classes, my_arg=32)
-        
+
         Arguments:
             input_channels (int): number of channels in the input
             n_classes (int): number of classes to predict
@@ -87,11 +88,14 @@ class CNN(nn.Module):
                 Reminder: logits are value pre-softmax.
         """
         #### WRITE YOUR CODE HERE!
-        #x = torch.from_numpy(x)
+        # x = torch.from_numpy(x)
+        # print(x.shape)
+        # print(type(x))
         x = x.view(-1, 1, 28, 28)
         x = F.max_pool2d(F.relu(self.conv2d1(x)), 2)
         x = F.max_pool2d(F.relu(self.conv2d2(x)), 2)
         x = x.reshape((x.shape[0], -1))
+        # print(x.shape)
         x = F.relu(torch.Tensor(self.fc1(x)))
         x = F.relu(torch.Tensor(self.fc2(x)))
         return self.fc3(x)
@@ -245,7 +249,8 @@ class MyViT(nn.Module):
                         patches[i, j * n_patches + k] = temp.flatten()
 
             return patches
-        
+
+        x = x.view(-1, 1, 28, 28)
         n, c, h, w = x.shape
 
         # Divide images into patches.
@@ -301,7 +306,7 @@ class Trainer(object):
     def train_all(self, dataloader):
         """
         Fully train the model over the epochs. 
-        
+
         In each epoch, it calls the functions "train_one_epoch". If you want to
         add something else at each epoch, you can do it here.
 
@@ -325,15 +330,28 @@ class Trainer(object):
         """
         #### WRITE YOUR CODE HERE!
         self.model.train()
-        for it, batch in enumerate(dataloader):
-            x, y = batch
+        for (it, batch) in enumerate(dataloader):
+            # print(batch[0].shape, batch[1].shape)
+            x, y = batch[0], batch[1]
             y = y.long()
-            logits = self.model(x)
-            loss = self.criterion(logits, y)
+            logit = self.model(x)
+            loss = self.criterion(logit, y)
             loss.backward()
             self.optimizer.step()
             self.optimizer.zero_grad()
+            print('\rEp {}/{}, it {}/{}: loss train: {:.2f}'.format(ep + 1, self.epochs, it + 1, len(dataloader), loss), end='')
 
+
+    def softmax(self, x):
+        """
+        Compute the softmax of a batch of scores.
+
+        Arguments:
+            x (tensor): input batch of shape (N, C)
+        Returns:
+            (tensor): softmax of the input batch of shape (N, C)
+        """
+        return torch.exp(x) / torch.exp(x).sum(dim=1, keepdim=True)
 
     def predict_torch(self, dataloader):
         """
@@ -341,7 +359,7 @@ class Trainer(object):
 
         Hints:
             1. Don't forget to set your model to eval mode, i.e., self.model.eval()!
-            2. You can use torch.no_grad() to turn off gradient computation, 
+            2. You can use torch.no_grad() to turn off gradient computation,
             which can save memory and speed up computation. Simply write:
                 with torch.no_grad():
                     # Write your code here.
@@ -357,12 +375,12 @@ class Trainer(object):
         pred_labels = []
         with torch.no_grad():
             for batch in dataloader:
-                x = batch
-                #print(len(batch))
+                x = batch[0]
                 pred = self.model(x)
+                pred = self.softmax(pred)
                 pred_labels.append(pred.argmax(dim=1))
         return torch.cat(pred_labels)
-    
+
     def fit(self, training_data, training_labels):
         """
         Trains the model, returns predicted labels for training data.
@@ -377,10 +395,17 @@ class Trainer(object):
         """
 
         # First, prepare data for pytorch
-        train_dataset = TensorDataset(torch.from_numpy(training_data).float(), 
+        train_dataset = TensorDataset(torch.from_numpy(training_data).float(),
                                       torch.from_numpy(training_labels))
         train_dataloader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
-        
+
+        # Print the dimensions of the tensors in the TensorDataset
+        # print("Training data dimensions: ", train_dataset.tensors[0].size())
+        # print("Training labels dimensions: ", train_dataset.tensors[1].size())
+
+        # Print the batch size of the DataLoader
+        # print("DataLoader batch size: ", train_dataloader.batch_size)
+
         self.train_all(train_dataloader)
 
         return self.predict(training_data)
@@ -390,7 +415,7 @@ class Trainer(object):
         Runs prediction on the test data.
 
         This serves as an interface between numpy and pytorch.
-        
+
         Arguments:
             test_data (array): test data of shape (N,D)
         Returns:
