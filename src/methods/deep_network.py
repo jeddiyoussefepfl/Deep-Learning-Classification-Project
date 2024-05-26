@@ -301,7 +301,8 @@ class Trainer(object):
         self.batch_size = batch_size
 
         self.criterion = nn.CrossEntropyLoss()
-        self.optimizer = torch.optim.SGD(model.parameters(), lr=lr)  ### WRITE YOUR CODE HERE
+        #self.optimizer = torch.optim.SGD(model.parameters(), lr=lr)  ### WE CAN CHANGE THE OPTIMIZER TO ADAM OR OTHERS
+        self.optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     def train_all(self, dataloader):
         """
@@ -332,13 +333,14 @@ class Trainer(object):
         self.model.train()
         for (it, batch) in enumerate(dataloader):
             # print(batch[0].shape, batch[1].shape)
+            self.optimizer.zero_grad()   #APPARENTLY BETTER TO PUT IT AT THE BEGINNING OF THE LOOP
             x, y = batch[0], batch[1]
             y = y.long()
             logit = self.model(x)
             loss = self.criterion(logit, y)
             loss.backward()
             self.optimizer.step()
-            self.optimizer.zero_grad()
+            
             print('\rEp {}/{}, it {}/{}: loss train: {:.2f}'.format(ep + 1, self.epochs, it + 1, len(dataloader), loss), end='')
 
 
@@ -377,7 +379,7 @@ class Trainer(object):
             for batch in dataloader:
                 x = batch[0]
                 pred = self.model(x)
-                pred = self.softmax(pred)
+                #pred = self.softmax(pred) #TO CHECK, APPARENTLY IT IS NOT NEEDED BECAUSE  nn.CrossEntropyLoss() ALREADY DOES IT
                 pred_labels.append(pred.argmax(dim=1))
         return torch.cat(pred_labels)
 

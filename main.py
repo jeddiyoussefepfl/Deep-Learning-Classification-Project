@@ -37,10 +37,11 @@ def main(args):
     #xtrain = append_bias_term(xtrain)
     #xtest = append_bias_term(xtest)
     
-    
+    """
     xtrain = xtrain[:6000]
     ytrain = ytrain[:6000]
     xtest = xtest[:1000]
+    """
     
     # Make a validation set
     if not args.test:
@@ -88,7 +89,7 @@ def main(args):
         model = CNN(1, n_classes)
     elif args.nn_type == "transformer":
         ### WRITE YOUR CODE HERE
-        model = MyViT((1, 28, 28), 7, 2, 8, 2, n_classes)
+        model = MyViT((1, 28, 28), 7, 4, 16, 4, n_classes)   #CHANGE VALUES CAN MAKE IT WAY BETTER
 
 
     summary(model)
