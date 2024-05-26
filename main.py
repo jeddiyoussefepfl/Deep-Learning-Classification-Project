@@ -89,7 +89,7 @@ def main(args):
         model = CNN(1, n_classes)
     elif args.nn_type == "transformer":
         ### WRITE YOUR CODE HERE
-        model = MyViT((1, 28, 28), 7, 4, 16, 4, n_classes)   #CHANGE VALUES CAN MAKE IT WAY BETTER
+        model = MyViT((1, 28, 28), 7, 2, 8, 2, n_classes)   #CHANGE VALUES CAN MAKE IT WAY
 
 
     summary(model)
