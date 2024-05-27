@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.tensorboard import SummaryWriter 
 import numpy as np
 from torch.utils.data import TensorDataset, DataLoader
 from src.utils import accuracy_fn as accuracy
@@ -330,6 +331,7 @@ class Trainer(object):
         self.epochs = epochs
         self.model = model
         self.batch_size = batch_size
+        self.writer = SummaryWriter()
 
         self.criterion = nn.CrossEntropyLoss()
         #self.optimizer = torch.optim.SGD(model.parameters(), lr=lr)  ### WE CAN CHANGE THE OPTIMIZER TO ADAM OR OTHERS
@@ -370,9 +372,11 @@ class Trainer(object):
             logit = self.model(x)
             loss = self.criterion(logit, y)
             loss.backward()
+            self.writer.add_scalar('Loss/train', loss, ep * len(dataloader) + it)
             self.optimizer.step()
             
             print('\rEp {}/{}, it {}/{}: loss train: {:.2f}'.format(ep + 1, self.epochs, it + 1, len(dataloader), loss), end='')
+        self.writer.flush()
 
 
     def softmax(self, x):
