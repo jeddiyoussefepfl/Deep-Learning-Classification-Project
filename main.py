@@ -2,7 +2,7 @@ import argparse
 
 import numpy as np
 from torchinfo import summary
-
+from scipy import stats
 from src.data import load_data
 from src.methods.dummy_methods import DummyClassifier
 from src.methods.pca import PCA
@@ -34,6 +34,12 @@ def main(args):
     std = np.std(xtrain, 0, keepdims=True)
     xtrain = normalize_fn(xtrain, mu, std)
     xtest = normalize_fn(xtest, mu, std)
+    z_scores = stats.zscore(xtrain, axis=0)
+    abs_z_scores = np.abs(z_scores)
+    filtered_entries = (abs_z_scores < 3).all(axis=1)
+    xtrain = xtrain[filtered_entries]
+    ytrain = ytrain[filtered_entries]
+
     #xtrain = append_bias_term(xtrain)
     #xtest = append_bias_term(xtest)
     
