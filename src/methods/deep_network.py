@@ -12,64 +12,48 @@ from src.utils import accuracy_fn as accuracy
 class MLP(nn.Module):
     """
     An MLP network which does classification.
-
     It should not use any convolutional layers.
     """
-
-    def __init__(self, input_size, n_classes):
+    
+    def __init__(self, input_size, n_classes, hidden_size=50):
         """
         Initialize the network.
-        
-        You can add arguments if you want, but WITH a default value, e.g.:
-            __init__(self, input_size, n_classes, my_arg=32)
         
         Arguments:
             input_size (int): size of the input
             n_classes (int): number of classes to predict
+            hidden_size (int): number of units in the hidden layer
         """
-        super().__init__()
-        dimensions = (input_size, 50, n_classes)
-        activations = (F.relu,  F.relu)
+        super(MLP, self).__init__()
         
-        self.n_layers = len(dimensions)
-        self.loss = None
-        self.learning_rate = None
-        self.activations = {}
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.n_classes = n_classes
         
-        # Weights and biases are initiated by index.
-        self.w = {}
-        self.b = {}
-
-        for l in range(1, self.n_layers):
-            self.w[l] = np.random.randn(dimensions[l - 1], dimensions[l]) / np.sqrt(dimensions[l - 1])
-            self.b[l] = np.zeros(dimensions[l])
-            self.activations[l] = activations[l-1]
-
-
+        # Initialize weights and biases for each layer
+        self.w1 = nn.Parameter(torch.randn(input_size, hidden_size) / torch.sqrt(torch.tensor(input_size, dtype=torch.float32)))
+        self.b1 = nn.Parameter(torch.zeros(hidden_size))
+        self.w2 = nn.Parameter(torch.randn(hidden_size, n_classes) / torch.sqrt(torch.tensor(hidden_size, dtype=torch.float32)))
+        self.b2 = nn.Parameter(torch.zeros(n_classes))
+        
     def forward(self, x):
         """
         Predict the class of a batch of samples with the model.
-
+        
         Arguments:
             x (tensor): input batch of shape (N, D)
         Returns:
             preds (tensor): logits of predictions of shape (N, C)
                 Reminder: logits are value pre-softmax.
         """
-        # w(x) + b
-        a = {}
-
-        # activations: z = f(a)
-        z = {0: x}  # First layer has no activations as input, so we consider input itself as the first activation.
+        # First layer
+        z1 = x @ self.w1 + self.b1  # Linear transformation
+        a1 = F.relu(z1)  # Activation function
         
-        for l in range(1, self.n_layers):
-            # current layer = l
-            a[l] = z[l - 1] @ self.w[l] + self.b[l]
-            z[l] = self.activations[l](torch.Tensor(a[l]))
-        preds = a[self.n_layers - 1]
-        ###
-        ##
-        return preds
+        # Output layer
+        z2 = a1 @ self.w2 + self.b2  # Linear transformation
+        
+        return z2
         
 
 class CNN(nn.Module):
