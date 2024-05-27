@@ -15,7 +15,7 @@ class MLP(nn.Module):
     It should not use any convolutional layers.
     """
     
-    def __init__(self, input_size, n_classes, hidden_size=50):
+    def __init__(self, input_size, n_classes, hidden_size1=50, hidden_size2=100):
         """
         Initialize the network.
         
@@ -27,14 +27,17 @@ class MLP(nn.Module):
         super(MLP, self).__init__()
         
         self.input_size = input_size
-        self.hidden_size = hidden_size
+        self.hidden_size_1 = hidden_size1
+        self.hidden_size_2 = hidden_size2
         self.n_classes = n_classes
         
         # Initialize weights and biases for each layer
-        self.w1 = nn.Parameter(torch.randn(input_size, hidden_size) / torch.sqrt(torch.tensor(input_size, dtype=torch.float32)))
-        self.b1 = nn.Parameter(torch.zeros(hidden_size))
-        self.w2 = nn.Parameter(torch.randn(hidden_size, n_classes) / torch.sqrt(torch.tensor(hidden_size, dtype=torch.float32)))
-        self.b2 = nn.Parameter(torch.zeros(n_classes))
+        self.w1 = nn.Parameter(torch.randn(input_size, hidden_size1) / torch.sqrt(torch.tensor(input_size, dtype=torch.float32)))
+        self.b1 = nn.Parameter(torch.zeros(hidden_size1))
+        self.w2 = nn.Parameter(torch.randn(hidden_size1, hidden_size2) / torch.sqrt(torch.tensor(hidden_size1, dtype=torch.float32)))
+        self.b2 = nn.Parameter(torch.zeros(hidden_size2))
+        self.w3 = nn.Parameter(torch.randn(hidden_size2, n_classes) / torch.sqrt(torch.tensor(hidden_size2, dtype=torch.float32)))
+        self.b3 = nn.Parameter(torch.zeros(n_classes))
         
     def forward(self, x):
         """
@@ -49,11 +52,15 @@ class MLP(nn.Module):
         # First layer
         z1 = x @ self.w1 + self.b1  # Linear transformation
         a1 = F.relu(z1)  # Activation function
+
+        # Second layer
+        z2 = a1 @ self.w2 + self.b2  # Linear transformation
+        a2 = F.relu(z2)  # Activation function
         
         # Output layer
-        z2 = a1 @ self.w2 + self.b2  # Linear transformation
+        z3 = a2 @ self.w3 + self.b3  # Linear transformation
         
-        return z2
+        return z3
         
 
 class CNN(nn.Module):
@@ -371,7 +378,7 @@ class Trainer(object):
             self.optimizer.zero_grad()   #APPARENTLY BETTER TO PUT IT AT THE BEGINNING OF THE LOOP
             x, y = batch[0], batch[1]
             y = y.long()
-            x.view(-1, 1, 28, 28)
+            x = x.view(-1, 1, 28, 28)
             logit = self.model(x)
             loss = self.criterion(logit, y)
             loss.backward()
@@ -416,6 +423,7 @@ class Trainer(object):
         with torch.no_grad():
             for batch in dataloader:
                 x = batch[0]
+                x = x.view(-1, 1, 28, 28)
                 pred = self.model(x)
                 #pred = self.softmax(pred) #TO CHECK, APPARENTLY IT IS NOT NEEDED BECAUSE  nn.CrossEntropyLoss() ALREADY DOES IT
                 pred_labels.append(pred.argmax(dim=1))
