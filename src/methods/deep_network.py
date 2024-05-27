@@ -28,11 +28,23 @@ class MLP(nn.Module):
             n_classes (int): number of classes to predict
         """
         super().__init__()
-        ##
-        ###
-        #### WRITE YOUR CODE HERE!
-        ###
-        ##
+        dimensions =  (input_size, 50, n_classes)
+        activations = (F.relu,  F.relu)
+        
+        self.n_layers = len(dimensions)
+        self.loss = None
+        self.learning_rate = None
+        self.activations = {}
+        
+        # Weights and biases are initiated by index.
+        self.w = {}
+        self.b = {}
+
+        for l in range(1, self.n_layers):
+            self.w[l] = np.random.randn(dimensions[l - 1], dimensions[l]) / np.sqrt(dimensions[l - 1])
+            self.b[l] = np.zeros(dimensions[l])
+            self.activations[l] = activations[l-1]
+
 
     def forward(self, x):
         """
@@ -44,13 +56,21 @@ class MLP(nn.Module):
             preds (tensor): logits of predictions of shape (N, C)
                 Reminder: logits are value pre-softmax.
         """
-        ##
-        ###
-        #### WRITE YOUR CODE HERE!
+        # w(x) + b
+        a = {}
+
+        # activations: z = f(a)
+        z = {0: x}  # First layer has no activations as input, so we consider input itself as the first activation.
+        
+        for l in range(1, self.n_layers):
+            # current layer = l
+            a[l] = z[l - 1] @ self.w[l] + self.b[l]
+            z[l] = self.activations[l](torch.Tensor(a[l]))
+        preds = a[self.n_layers - 1]
         ###
         ##
         return preds
-
+        
 
 class CNN(nn.Module):
     """
