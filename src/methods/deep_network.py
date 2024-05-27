@@ -28,7 +28,7 @@ class MLP(nn.Module):
             n_classes (int): number of classes to predict
         """
         super().__init__()
-        dimensions =  (input_size, 50, n_classes)
+        dimensions = (input_size, 50, n_classes)
         activations = (F.relu,  F.relu)
         
         self.n_layers = len(dimensions)
@@ -112,7 +112,6 @@ class CNN(nn.Module):
         # x = torch.from_numpy(x)
         # print(x.shape)
         # print(type(x))
-        x = x.view(-1, 1, 28, 28)
         x = F.max_pool2d(F.relu(self.conv2d1(x)), 2)
         x = F.max_pool2d(F.relu(self.conv2d2(x)), 2)
         x = x.reshape((x.shape[0], -1))
@@ -292,7 +291,6 @@ class MyViT(nn.Module):
 
             return patches
 
-        x = x.view(-1, 1, 28, 28)
         n, c, h, w = x.shape
 
         x = self.conv(x)
@@ -389,6 +387,7 @@ class Trainer(object):
             self.optimizer.zero_grad()   #APPARENTLY BETTER TO PUT IT AT THE BEGINNING OF THE LOOP
             x, y = batch[0], batch[1]
             y = y.long()
+            x.view(-1, 1, 28, 28)
             logit = self.model(x)
             loss = self.criterion(logit, y)
             loss.backward()
