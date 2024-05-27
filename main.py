@@ -89,7 +89,7 @@ def main(args):
         model = CNN(1, n_classes)
     elif args.nn_type == "transformer":
         ### WRITE YOUR CODE HERE
-        model = MyViT((1, 28, 28), 7, 2, 8, 2, n_classes)   #CHANGE VALUES CAN MAKE IT WAY
+        model = MyViT((1, 28, 28), 7, 4, 16, 4, n_classes)   #CHANGE VALUES CAN MAKE IT BETTER
 
 
     summary(model)
@@ -106,18 +106,19 @@ def main(args):
     # Predict on unseen data
     preds = method_obj.predict(xtest)
 
-    ## Report results: performance on train and valid/test sets
-    acc = accuracy_fn(preds_train, ytrain)
-    macrof1 = macrof1_fn(preds_train, ytrain)
-    print(f"\nTrain set: accuracy = {acc:.3f}% - F1-score = {macrof1:.6f}")
+    if not args.test:
+        ## Report results: performance on train and valid/test sets
+        acc = accuracy_fn(preds_train, ytrain)
+        macrof1 = macrof1_fn(preds_train, ytrain)
+        print(f"\nTrain set: accuracy = {acc:.3f}% - F1-score = {macrof1:.6f}")
 
 
     ## As there are no test dataset labels, check your model accuracy on validation dataset.
     # You can check your model performance on test set by submitting your test set predictions on the AIcrowd competition.
 
-    #acc = accuracy_fn(preds, xtest)
-    #macrof1 = macrof1_fn(preds, xtest)
-    #print(f"Validation set:  accuracy = {acc:.3f}% - F1-score = {macrof1:.6f}")
+    acc = accuracy_fn(preds, ytest)
+    macrof1 = macrof1_fn(preds, ytest)
+    print(f"Validation set:  accuracy = {acc:.3f}% - F1-score = {macrof1:.6f}")
 
 
     ### WRITE YOUR CODE HERE if you want to add other outputs, visualization, etc.

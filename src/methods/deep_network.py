@@ -143,8 +143,10 @@ class MyViT(nn.Module):
                 self.v_mappings = nn.ModuleList([nn.Linear(d_head, d_head) for _ in range(self.n_heads)])
 
                 self.softmax = nn.Softmax(dim=-1)
+                self.output_mapping = nn.Linear(d, d)
 
             def forward(self, sequences):
+                """
                 result = []
                 for sequence in sequences:
                     seq_result = []
@@ -165,25 +167,41 @@ class MyViT(nn.Module):
                         seq_result.append(attention @ v)
                     result.append(torch.hstack(seq_result))
                 return torch.cat([torch.unsqueeze(r, dim=0) for r in result])
-            
+            """
+                batch_size, seq_len, d = sequences.shape
+                sequences = sequences.view(batch_size, seq_len, self.n_heads, self.d_head)
+                sequences = sequences.permute(0, 2, 1, 3)  # (batch_size, n_heads, seq_len, d_head)
+
+                q = torch.cat([mapping(sequences[:, i]) for i, mapping in enumerate(self.q_mappings)], dim=2)
+                k = torch.cat([mapping(sequences[:, i]) for i, mapping in enumerate(self.k_mappings)], dim=2)
+                v = torch.cat([mapping(sequences[:, i]) for i, mapping in enumerate(self.v_mappings)], dim=2)
+
+                attention_scores = self.softmax(torch.matmul(q, k.transpose(-1, -2)) / np.sqrt(self.d_head))
+                attention_output = torch.matmul(attention_scores, v)
+
+                attention_output = attention_output.transpose(1,2).contiguous().view(batch_size, seq_len, d)
+                return self.output_mapping(attention_output)
             
         class MyViTBlock(nn.Module):
-            def __init__(self, hidden_d, n_heads, mlp_ratio=4):
+            def __init__(self, hidden_d, n_heads, mlp_ratio=4, dropout_rate = 0.1):
                 super(MyViTBlock, self).__init__()
                 self.hidden_d = hidden_d
                 self.n_heads = n_heads
 
                 self.norm1 = nn.LayerNorm(hidden_d) 
                 self.mhsa = MyMSA(hidden_d, n_heads)
+                self.dropout1 = nn.Dropout(dropout_rate)   #TO CHECK    
+                
                 self.norm2 = nn.LayerNorm(hidden_d)  
                 self.mlp = nn.Sequential( 
                     nn.Linear(hidden_d, mlp_ratio * hidden_d),
                     nn.GELU(),
-                    nn.Linear(mlp_ratio * hidden_d, hidden_d)
+                    nn.Linear(mlp_ratio * hidden_d, hidden_d),
+                    nn.Dropout(dropout_rate)   #TO CHECK
                 )
 
             def forward(self, x):
-                out = x + self.mhsa(self.norm1(x))
+                out = x + self.dropout1(self.mhsa(self.norm1(x)))
                 out = out + self.mlp(self.norm2(out))
                 return out
 
@@ -196,25 +214,28 @@ class MyViT(nn.Module):
         # Input and patches sizes
         assert chw[1] % n_patches == 0 # Input shape must be divisible by number of patches
         assert chw[2] % n_patches == 0
-        self.patch_size = (chw[1] / n_patches, chw[2] / n_patches) 
+        self.patch_size = (chw[1] // n_patches, chw[2] // n_patches) 
 
         # Linear mapper
         self.input_d = int(chw[0] * self.patch_size[0] * self.patch_size[1])
         self.linear_mapper = nn.Linear(self.input_d, self.hidden_d)
+        
+        self.conv = nn.Conv2d(chw[0], hidden_d, kernel_size=self.patch_size, stride=self.patch_size)  #TO CHECK
 
         # Learnable classification token
-        self.class_token = nn.Parameter(torch.rand(1, self.hidden_d))
+        self.class_token = nn.Parameter(torch.rand(1, 1, self.hidden_d))
 
         # Positional embedding
-        self.positional_embeddings = get_positional_embeddings(n_patches ** 2 + 1, hidden_d) ### WRITE YOUR CODE HERE
+        self.positional_embeddings = nn.Parameter(get_positional_embeddings(n_patches ** 2 + 1, hidden_d)) #TO CHECK
 
         # Transformer blocks
         self.blocks = nn.ModuleList([MyViTBlock(hidden_d, n_heads) for _ in range(n_blocks)])
 
         # Classification MLP
-        self.mlp = nn.Sequential(
+        self.mlp_head = nn.Sequential(
+            nn.LayerNorm(hidden_d),
             nn.Linear(self.hidden_d, out_d),
-            nn.Softmax(dim=-1)
+            #nn.Softmax(dim=-1)
         )
         
     def forward(self, x):
@@ -253,27 +274,37 @@ class MyViT(nn.Module):
         x = x.view(-1, 1, 28, 28)
         n, c, h, w = x.shape
 
+        x = self.conv(x)
+        x = x.flatten(2).transpose(1, 2)
+        
+        
         # Divide images into patches.
-        patches = patchify(x, self.n_patches)
+        #patches = patchify(x, self.n_patches)
 
         # Map the vector corresponding to each patch to the hidden size dimension.
-        tokens = self.linear_mapper(patches)
+        #tokens = self.linear_mapper(patches)
 
+        class_tokens = self.class_token.expand(n, 1, -1) 
+        
         # Add classification token to the tokens.
-        tokens = torch.cat((self.class_token.expand(n, 1, -1), tokens), dim=1)
+        x = torch.cat((class_tokens, x), dim=1)
+        
 
         # Add positional embedding.
-        preds = tokens + self.positional_embeddings.repeat(n,1,1)
+        #preds = tokens + self.positional_embeddings.repeat(n,1,1)
 
+        x = x + self.positional_embeddings
+        
         # Transformer Blocks
         for block in self.blocks:
-            preds = block(preds)
+            #preds = block(preds)
+            x = block(x)
 
         # Get the classification token only.
-        preds = preds[:, 0]
+        x = x[:, 0]
 
         # Map to the output distribution.
-        preds = self.mlp(preds)
+        preds = self.mlp_head(x)
         
         return preds
 
