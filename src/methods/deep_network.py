@@ -55,7 +55,7 @@ class MLP(nn.Module):
 
         # Second layer
         z2 = a1 @ self.w2 + self.b2  # Linear transformation
-        a2 = F.relu(z2)  # Activation function
+        a2 = F.sigmoid(z2)  # Activation function
         
         # Output layer
         z3 = a2 @ self.w3 + self.b3  # Linear transformation
@@ -74,20 +74,35 @@ class CNN(nn.Module):
         """
         Initialize the network.
 
-        You can add arguments if you want, but WITH a default value, e.g.:
-            __init__(self, input_channels, n_classes, my_arg=32)
-
         Arguments:
             input_channels (int): number of channels in the input
             n_classes (int): number of classes to predict
         """
         super(CNN, self).__init__()
-        #### WRITE YOUR CODE HERE!
-        self.conv2d1 = nn.Conv2d(input_channels, 6, 3, padding=1)
-        self.conv2d2 = nn.Conv2d(6, 16, 3, padding=1)
-        self.fc1 = nn.Linear(16 * 7 * 7, 120)
-        self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, n_classes)
+        # First convolutional layer
+        self.conv2d1 = nn.Conv2d(input_channels, 32, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm2d(32)
+
+        # Second convolutional layer
+        self.conv2d2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
+        self.bn2 = nn.BatchNorm2d(64)
+
+        # Third convolutional layer
+        self.conv2d3 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
+        self.bn3 = nn.BatchNorm2d(128)
+
+        self.conv2d4 = nn.Conv2d(128, 256, kernel_size=3, padding=1)
+        self.bn4 = nn.BatchNorm2d(256)
+
+
+        # Fully connected layers
+        self.fc1 = nn.Linear(256, 128)  # Assuming input image size is 32x32
+        self.fc2 = nn.Linear(128, 64)
+        self.fc3 = nn.Linear(64, n_classes)
+
+
+        # Dropout layer
+        self.dropout = nn.Dropout(0.35)
 
     def forward(self, x):
         """
@@ -99,17 +114,33 @@ class CNN(nn.Module):
             preds (tensor): logits of predictions of shape (N, C)
                 Reminder: logits are value pre-softmax.
         """
-        #### WRITE YOUR CODE HERE!
-        # x = torch.from_numpy(x)
-        # print(x.shape)
-        # print(type(x))
-        x = F.max_pool2d(F.relu(self.conv2d1(x)), 2)
-        x = F.max_pool2d(F.relu(self.conv2d2(x)), 2)
-        x = x.reshape((x.shape[0], -1))
-        # print(x.shape)
-        x = F.relu(torch.Tensor(self.fc1(x)))
-        x = F.relu(torch.Tensor(self.fc2(x)))
-        return self.fc3(x)
+        x = F.relu(self.bn1(self.conv2d1(x)))
+        x = F.max_pool2d(x, 2)
+        x = self.dropout(x)
+
+        x = F.relu(self.bn2(self.conv2d2(x)))
+        x = F.max_pool2d(x, 2)
+        x = self.dropout(x)
+
+        x = F.relu(self.bn3(self.conv2d3(x)))
+        x = F.max_pool2d(x, 2)
+        x = self.dropout(x)
+
+        x = F.relu(self.bn4(self.conv2d4(x)))
+        x = F.max_pool2d(x, 2)
+        x = self.dropout(x)
+
+        x = F.adaptive_avg_pool2d(x, 1).view(x.size(0), -1)
+
+        x = F.relu(self.fc1(x))
+        x = self.dropout(x)
+        x = F.relu(self.fc2(x))
+        x = self.dropout(x)
+
+        x = F.relu(self.fc3(x))
+
+        return x
+
 
 
 class MyViT(nn.Module):
@@ -266,6 +297,7 @@ class MyViT(nn.Module):
         ##
         
         def patchify(images, n_patches):
+            x = x.view(-1, 1, 28, 28)
             n, c, h, w = images.shape
 
             assert h == w # Only square images are supported
@@ -340,13 +372,16 @@ class Trainer(object):
         self.epochs = epochs
         self.model = model
         self.batch_size = batch_size
-        self.writer = SummaryWriter()
 
         self.criterion = nn.CrossEntropyLoss()
-        #self.optimizer = torch.optim.SGD(model.parameters(), lr=lr)  ### WE CAN CHANGE THE OPTIMIZER TO ADAM OR OTHERS
-        self.optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+        self.optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
+        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min')
 
-    def train_all(self, dataloader):
+        self.best_loss = float('inf')
+        self.patience = 5
+        self.patience_counter = 0
+
+    def train_all(self, dataloader, val_dataloader):
         """
         Fully train the model over the epochs. 
 
@@ -358,6 +393,20 @@ class Trainer(object):
         """
         for ep in range(self.epochs):
             self.train_one_epoch(dataloader, ep)
+            val_loss = self.validate_one_epoch(val_dataloader)
+            print(val_loss)
+            self.scheduler.step(val_loss)
+
+            if val_loss < self.best_loss:
+                self.best_loss = val_loss
+                self.patience_counter = 0
+                torch.save(self.model.state_dict(), 'best_model.pth')
+            else:
+                self.patience_counter += 1
+
+            if self.patience_counter >= self.patience:
+                print("Early stopping triggered")
+                break
 
             ### WRITE YOUR CODE HERE if you want to do add something else at each epoch
 
@@ -382,11 +431,12 @@ class Trainer(object):
             logit = self.model(x)
             loss = self.criterion(logit, y)
             loss.backward()
-            self.writer.add_scalar('Loss/train', loss, ep * len(dataloader) + it)
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1)
+            #self.writer.add_scalar('Loss/train', loss, ep * len(dataloader) + it)
             self.optimizer.step()
             
             print('\rEp {}/{}, it {}/{}: loss train: {:.2f}'.format(ep + 1, self.epochs, it + 1, len(dataloader), loss), end='')
-        self.writer.flush()
+        #self.writer.flush()
 
 
     def softmax(self, x):
@@ -399,6 +449,27 @@ class Trainer(object):
             (tensor): softmax of the input batch of shape (N, C)
         """
         return torch.exp(x) / torch.exp(x).sum(dim=1, keepdim=True)
+
+    def validate_one_epoch(self, dataloader):
+        """
+        Validate the model for ONE epoch.
+
+        Arguments:
+            dataloader (DataLoader): dataloader for validation data
+        """
+        self.model.eval()
+        val_loss = 0.0
+        with torch.no_grad():
+            for batch in dataloader:
+                x, y = batch[0], batch[1]
+                y = y.long()
+                x = x.view(-1, 1, 28, 28)
+                logit = self.model(x)
+                loss = self.criterion(logit, y)
+                val_loss += loss.item()
+        val_loss /= len(dataloader)
+        #self.writer.add_scalar('Loss/val', val_loss)
+        return val_loss
 
     def predict_torch(self, dataloader):
         """
@@ -429,7 +500,7 @@ class Trainer(object):
                 pred_labels.append(pred.argmax(dim=1))
         return torch.cat(pred_labels)
 
-    def fit(self, training_data, training_labels):
+    def fit(self, training_data, training_labels, validation_data, validation_labels):
         """
         Trains the model, returns predicted labels for training data.
 
@@ -454,7 +525,12 @@ class Trainer(object):
         # Print the batch size of the DataLoader
         # print("DataLoader batch size: ", train_dataloader.batch_size)
 
-        self.train_all(train_dataloader)
+        # Prepare validation data for pytorch
+        val_dataset = TensorDataset(torch.from_numpy(validation_data).float(),
+                                    torch.from_numpy(validation_labels))
+        val_dataloader = DataLoader(val_dataset, batch_size=self.batch_size, shuffle=False)
+
+        self.train_all(train_dataloader, val_dataloader)
 
         return self.predict(training_data)
 

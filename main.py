@@ -1,9 +1,11 @@
 import argparse
 
 import numpy as np
+import cv2
 from torchinfo import summary
 from scipy import stats
 from src.data import load_data
+from sklearn.model_selection import KFold
 from src.methods.dummy_methods import DummyClassifier
 from src.methods.pca import PCA
 from src.methods.deep_network import MLP, CNN, Trainer, MyViT
@@ -34,39 +36,25 @@ def main(args):
     std = np.std(xtrain, 0, keepdims=True)
     xtrain = normalize_fn(xtrain, mu, std)
     xtest = normalize_fn(xtest, mu, std)
-    z_scores = stats.zscore(xtrain, axis=0)
-    abs_z_scores = np.abs(z_scores)
-    filtered_entries = (abs_z_scores < 3).all(axis=1)
-    xtrain = xtrain[filtered_entries]
-    ytrain = ytrain[filtered_entries]
 
-    #xtrain = append_bias_term(xtrain)
-    #xtest = append_bias_term(xtest)
-    
-    """
-    xtrain = xtrain[:6000]
-    ytrain = ytrain[:6000]
-    xtest = xtest[:1000]
-    """
-    
     # Make a validation set
-    if not args.test:
-        ### WRITE YOUR CODE HERE
-        validation_ratio = 0.2  # for example, 20% of the data will be used as the validation set
-        num_validation_samples = int(validation_ratio * xtrain.shape[0])
-        
-         # Shuffle the data before splitting (optional but recommended)
-        indices_x = np.arange(xtrain.shape[0])
-        np.random.shuffle(indices_x)
-        xtrain = xtrain[indices_x] 
-        ytrain = ytrain[indices_x] 
-        
-        
-        # Split the data
-        xtrain = xtrain[num_validation_samples:]
-        ytrain = ytrain[num_validation_samples:]
-        xtest = xtrain[:num_validation_samples]
-        ytest = ytrain[:num_validation_samples]  
+    
+    ### WRITE YOUR CODE HERE
+    validation_ratio = 0.2  # for example, 20% of the data will be used as the validation set
+    num_validation_samples = int(validation_ratio * xtrain.shape[0])
+
+    # Shuffle the data before splitting (optional but recommended)
+    indices_x = np.arange(xtrain.shape[0])
+    np.random.shuffle(indices_x)
+    xtrain = xtrain[indices_x] 
+    ytrain = ytrain[indices_x] 
+    
+    
+    # Split the data
+    xtrain = xtrain[num_validation_samples:]
+    ytrain = ytrain[num_validation_samples:]
+    xval = xtrain[:num_validation_samples]
+    yval = ytrain[:num_validation_samples]
 
         
     ### WRITE YOUR CODE HERE to do any other data processing
@@ -100,6 +88,7 @@ def main(args):
 
     summary(model)
 
+
     # Trainer object
     method_obj = Trainer(model, lr=args.lr, epochs=args.max_iters, batch_size=args.nn_batch_size)
 
@@ -107,7 +96,7 @@ def main(args):
     ## 4. Train and evaluate the method
 
     # Fit (:=train) the method on the training data
-    preds_train = method_obj.fit(xtrain, ytrain)
+    preds_train = method_obj.fit(xtrain, ytrain, xval, yval)
 
     # Predict on unseen data
     preds = method_obj.predict(xtest)
@@ -122,12 +111,13 @@ def main(args):
     ## As there are no test dataset labels, check your model accuracy on validation dataset.
     # You can check your model performance on test set by submitting your test set predictions on the AIcrowd competition.
 
-    acc = accuracy_fn(preds, ytest)
-    macrof1 = macrof1_fn(preds, ytest)
-    print(f"Validation set:  accuracy = {acc:.3f}% - F1-score = {macrof1:.6f}")
+    #acc = accuracy_fn(preds, ytest)
+    #macrof1 = macrof1_fn(preds, ytest)
+    #print(f"Validation set:  accuracy = {acc:.3f}% - F1-score = {macrof1:.6f}")
 
 
     ### WRITE YOUR CODE HERE if you want to add other outputs, visualization, etc.
+    np.save("predictions", preds)
 
 
 if __name__ == '__main__':
